@@ -1,107 +1,196 @@
-N = int(input("Introduce la dimensión de las matrices: "))
-
-x1 = []
-print(f"Introduce las {N} filas de x1:")
-for i in range(N):
-    fila = [float(x) for x in input(f"Fila {i + 1}: ").split()]
-    x1.append(fila)
-
-x2 = []
-print(f"Introduce las {N} filas de x2:")
-for i in range(N):
-    fila = [float(x) for x in input(f"Fila {i + 1}: ").split()]
-    x2.append(fila)
+ARCHIVOS_DATASET = [
+    "torre.txt",
+    "rey.txt",
+    "peon.txt",
+    "dama.txt",
+    "caballo.txt",
+    "alfil.txt",
+]
+ARCHIVO_PRUEBA = "prueba.txt"
 
 
-#Transposicion
+def leer_archivo(ruta):
+    matriz = []
 
-m1 = []
-for fila in x1:
-    for valor in fila:
-        m1.append(-1.0 if valor == 0 else 1.0)
+    try:
+        archivo = open(ruta, "r")
+    except FileNotFoundError:
+        print(f"No se encontró el archivo: {ruta}")
+        return []
 
-m2 = []
-for fila in x2:
-    for valor in fila:
-        m2.append(-1.0 if valor == 0 else 1.0)
+    for linea in archivo:
+        texto = linea.strip()
+        if texto == "":
+            continue
+
+        valores = texto.split()
+        if len(valores) == 1:
+            fila = []
+            for valor in valores[0]:
+                fila.append(valor)
+        else:
+            fila = valores
+
+        fila_numeros = []
+        for valor in fila:
+            if valor != "0" and valor != "1":
+                print(f"El archivo {ruta} solo debe contener 0 y 1.")
+                archivo.close()
+                return []
+            if valor == "0":
+                fila_numeros.append(-1.0)
+            else:
+                fila_numeros.append(1.0)
+        matriz.append(fila_numeros)
+
+    archivo.close()
+    return matriz
+
+
+def matriz_a_vector(matriz):
+    vector = []
+    for fila in matriz:
+        for valor in fila:
+            vector.append(valor)
+    return vector
 
 
 def productoC(m1, m2):
     cruz = []
-    long = len(m1)
-    for i in range(long):
+    longitud = len(m1)
+
+    for i in range(longitud):
         fila = []
-        for j in range(long):
+        for j in range(longitud):
             fila.append(m1[i] * m2[j])
         cruz.append(fila)
+
     return cruz
 
-r1 = productoC(m1, m1)
-r2 = productoC(m2, m2)
 
-#Paso: Suma de matrices
+def construir_pesos(patrones):
+    cantidad_neuronas = len(patrones[0])
+    pesos = []
 
-l = len(m1)
-W = []
-for i in range(l):
-    fila = []
-    for j in range(l):
-        if i == j:
-            fila.append(0.0)
-        else:
-            fila.append(r1[i][j] + r2[i][j])
-    W.append(fila)
+    for i in range(cantidad_neuronas):
+        fila = []
+        for j in range(cantidad_neuronas):
+            suma = 0.0
+            for patron in patrones:
+                producto = productoC(patron, patron)
+                suma += producto[i][j]
 
-print("\nMatriz X1^T * X1")
-for f in r1:
-    print(f)
+            if i == j:
+                fila.append(0.0)
+            else:
+                fila.append(suma)
+        pesos.append(fila)
 
-print("\nX2^T * X2")
-for f in r2:
-    print(f)
-
-print("\nMatriz con diagonal:")
-for f in W:
-    print(f)
+    return pesos
 
 
-#Analisis de patron
-entrada = input("\nIntroduce el patrón a evaluar: ")
-A = [float(x) for x in entrada.split()]
+def recordar(entrada, pesos):
+    actual = entrada[:]
+    iteracion = 0
+    maximo = 50
 
-MAX = 50
-iter = 0
-flag = False
+    while iteracion < maximo:
+        iteracion += 1
+        siguiente = []
 
-while iter < MAX:
-    iter += 1
+        for j in range(len(pesos)):
+            suma = 0.0
+            for i in range(len(actual)):
+                suma += actual[i] * pesos[i][j]
 
-    res = []
-    for j in range(len(W)):
-        suma = 0
-        for i in range(len(A)):
-            suma += A[i] * W[i][j]
-        res.append(suma)
+            if suma > 0:
+                siguiente.append(1.0)
+            elif suma < 0:
+                siguiente.append(-1.0)
+            else:
+                siguiente.append(actual[j])
 
-    #Formato de resultado segun la funcion f
-    U1 = []
-    for j in range(len(res)):
-        x = res[j]
-        if x > 0:
-            U1.append(1.0)
-        elif x < 0:
-            U1.append(-1.0)
-        else:
-            U1.append(A[j])
+        print(f"U({iteracion}) = {siguiente}")
 
-    print(f"U({iter})= {U1}")
+        if siguiente == actual:
+            return siguiente, iteracion
 
-    if U1 == A:
-        flag = True
-        print(f"Iteracion {iter} y patron mas cercano: {U1}")
-        break
+        actual = siguiente
 
-    A = U1
+    return actual, iteracion
 
-if not flag:
-    print("No se puede encontrar un patron concreto")
+
+def contar_iguales(patron1, patron2):
+    iguales = 0
+    for i in range(len(patron1)):
+        if patron1[i] == patron2[i]:
+            iguales += 1
+    return iguales
+
+
+def reconocer(patron, patrones, nombres):
+    mejor_indice = 0
+    mayor_cantidad = contar_iguales(patron, patrones[0])
+
+    for i in range(1, len(patrones)):
+        cantidad = contar_iguales(patron, patrones[i])
+        if cantidad > mayor_cantidad:
+            mejor_indice = i
+            mayor_cantidad = cantidad
+
+    return nombres[mejor_indice], mayor_cantidad
+
+
+def main():
+    patrones = []
+    nombres = []
+    filas = 0
+    columnas = 0
+
+    for nombre in ARCHIVOS_DATASET:
+        matriz = leer_archivo("dataset/" + nombre)
+        if len(matriz) == 0:
+            return
+
+        if filas == 0:
+            filas = len(matriz)
+            columnas = len(matriz[0])
+        elif len(matriz) != filas or len(matriz[0]) != columnas:
+            print("Todas las figuras del dataset deben tener el mismo tamaño.")
+            return
+
+        vector = matriz_a_vector(matriz)
+        if len(vector) != filas * columnas:
+            print("Todas las filas del dataset deben tener el mismo tamaño.")
+            return
+
+        patrones.append(vector)
+        nombres.append(nombre.replace(".txt", ""))
+
+    entrada_matriz = leer_archivo(ARCHIVO_PRUEBA)
+    if len(entrada_matriz) == 0:
+        print("El archivo prueba.txt está vacío o no es válido.")
+        return
+
+    if len(entrada_matriz) != filas:
+        print(f"prueba.txt debe tener {filas} filas.")
+        return
+
+    entrada = matriz_a_vector(entrada_matriz)
+    if len(entrada) != filas * columnas:
+        print(f"Cada fila de prueba.txt debe tener {columnas} valores.")
+        return
+
+    print(f"Se cargaron {len(patrones)} patrones del dataset.")
+    print(f"Cada patrón tiene {filas * columnas} neuronas.")
+
+    pesos = construir_pesos(patrones)
+    recuperado, iteraciones = recordar(entrada, pesos)
+    nombre, cantidad = reconocer(entrada, patrones, nombres)
+
+    print(f"\nLa red se estabilizó en {iteraciones} iteraciones.")
+    print(f"prueba.txt se parece más a: {nombre}")
+    print(f"Coinciden {cantidad} de {len(recuperado)} posiciones.")
+
+
+main()
