@@ -1,0 +1,24 @@
+cat << 'EOF' > .gitignore
+# Entornos virtuales de Python
+**/venv/
+**/nn-env/
+**/.venv/
+**/env/
+
+# Caché de Python
+**/__pycache__/
+*.pyc
+
+# Excluir materias o carpetas pesadas
+Compiladores/
+dataset/
+nodeimage/
+www/
+
+# Binarios y objetos de C/C++
+*.o
+*.out
+lex.yy.c
+myhello
+hello.c
+EOF
